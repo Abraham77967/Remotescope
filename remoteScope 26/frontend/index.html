@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RemoteScope - Remote Analog Signal Reconstructor</title>
+  <!-- Modern Typography -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="app-background">
+    <div class="gradient-blob shape-1"></div>
+    <div class="gradient-blob shape-2"></div>
+  </div>
+
+  <div class="app-container">
+    <header class="navbar glass-panel">
+      <div class="logo">
+        <h1>RemoteScope</h1>
+      </div>
+      <div class="controls">
+        <input type="text" id="roomInput" placeholder="Session Code" class="glass-input" />
+        <button id="joinBtn" class="btn primary-btn">Join Session</button>
+      </div>
+    </header>
+
+    <main class="grid-layout">
+      <!-- Signal Panel (Oscilloscope) -->
+      <section class="panel glass-panel dashboard-panel">
+        <div class="panel-header" style="flex-wrap: wrap; gap: 1rem;">
+          <div style="display:flex; align-items:center; gap: 1rem;">
+            <div class="tab-buttons">
+              <button class="tab-btn active" id="tabOscBtn">Oscilloscope</button>
+              <button class="tab-btn" id="tabFftBtn">Spectrum (FFT)</button>
+            </div>
+            <div style="display:flex; gap: 0.5rem;">
+              <span
+                style="font-size: 0.6em; background: rgba(59,130,246,0.1); color:#3b82f6; border: 1px solid rgba(59,130,246,0.2); padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">CH1:
+                Local</span>
+              <span
+                style="font-size: 0.6em; background: rgba(139,92,246,0.1); color:#8b5cf6; border: 1px solid rgba(139,92,246,0.2); padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">CH2:
+                Remote</span>
+            </div>
+          </div>
+          <div class="status-indicator">
+            <span class="dot disconnected" id="serialStatusDot"></span>
+            <span id="serialStatusText">Arduino Disconnected</span>
+          </div>
+        </div>
+
+        <div class="chart-wrapper" id="oscContainer">
+          <canvas id="signalChart"></canvas>
+        </div>
+
+        <div class="chart-wrapper" id="fftContainer" style="display: none;">
+          <canvas id="fftChart"></canvas>
+        </div>
+
+        <div class="action-bar">
+          <div class="controls-left" style="flex-direction: column; align-items: flex-start; gap: 1rem;">
+            <div style="display: flex; gap: 1rem; align-items: center;">
+              <button id="connectSerialBtn" class="btn secondary-btn">Connect Serial</button>
+              <button id="transmitDataBtn" class="btn success-btn" disabled>Start Tx</button>
+              <button id="receiveDataBtn" class="btn secondary-btn" disabled>Start Rx</button>
+
+              <div class="slider-container">
+                <label for="timeScaleSlider"
+                  style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); display:flex; justify-content:space-between; width:100%;">
+                  <span>Zoom Window</span>
+                  <span id="zoomLabel" style="color:var(--accent-cyan); font-weight:bold;">100 ms</span>
+                </label>
+                <input type="range" id="timeScaleSlider" min="50" max="5000" step="50" value="1000" class="glass-slider"
+                  style="width:100%;">
+              </div>
+            </div>
+
+            <div
+              style="display: flex; gap: 1rem; align-items: center; border-top: 1px solid var(--border-glass); padding-top: 1rem; width: 100%;">
+              <button id="recordBtn" class="btn secondary-btn" disabled>Record</button>
+              <button id="sendRecordBtn" class="btn secondary-btn" disabled>Send Tx</button>
+              <button id="playRecordBtn" class="btn secondary-btn" disabled>Play Rx</button>
+              <span id="recordStatus"
+                style="font-size: 0.85rem; color: var(--text-muted); background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-glass);">Tape:
+                Idle</span>
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="label">Local Status</span>
+              <span class="value" id="statsMode">Idle</span>
+            </div>
+            <div class="stat-box">
+              <span class="label">Val</span>
+              <span class="value" id="statsVal">0</span>
+            </div>
+            <div class="stat-box">
+              <span class="label">Freq</span>
+              <span class="value" id="statsFreq">-- Hz</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Video Feed Panel -->
+      <section class="panel glass-panel video-panel">
+        <div class="panel-header">
+          <h2>Circuit Stream</h2>
+          <button id="cameraBtn" class="btn secondary-btn">Share Cam</button>
+        </div>
+
+        <div id="videoGrid" class="video-grid">
+          <!-- Remote -->
+          <div class="video-container remote-feed">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <div class="feed-overlay">
+              <div class="feed-label">Partner's Circuit</div>
+            </div>
+          </div>
+
+          <!-- Local -->
+          <div class="video-container local-feed">
+            <video id="localVideo" autoplay playsinline muted></video>
+            <div class="feed-overlay">
+              <div class="feed-label">Your Camera</div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="panel glass-panel pipeline-panel">
+        <div class="panel-header">
+          <h2>Pipeline Block Diagram</h2>
+          <div class="pipeline-controls">
+            <button id="moveLeftBtn" class="btn secondary-btn" disabled>Move Left</button>
+            <button id="moveRightBtn" class="btn secondary-btn" disabled>Move Right</button>
+            <button id="publishChainBtn" class="btn primary-btn" disabled>Publish Chain</button>
+          </div>
+        </div>
+
+        <div class="pipeline-body">
+          <div id="pipelineHint" class="pipeline-hint">
+            Join a room to build a signal chain.
+          </div>
+          <div id="pipelineDiagram" class="pipeline-diagram"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
